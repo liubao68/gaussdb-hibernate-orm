@@ -5,13 +5,13 @@ name: Java CI with Maven
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master-dev ]
 
 jobs:
   build:
-    if: github.repository == 'HuaweiCloudDeveloper/gaussdb-r2dbc'
+    if: github.repository == 'HuaweiCloudDeveloper/gaussdb-hibernate-orm'
     runs-on: ubuntu-latest
-    environment: r2dbc-build
+    environment: gaussdb-hibernate-orm-build
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 17
@@ -26,4 +26,4 @@ jobs:
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           GPG_KEY_BASE64: ${{ secrets.GPG_KEY_BASE64 }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: ./mvnw -B deploy -P snapshot -s settings.xml
+        run: build-and-snapshot.sh
