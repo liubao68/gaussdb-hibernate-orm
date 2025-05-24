@@ -19,8 +19,6 @@ jobs:
         with:
           java-version: 17
           distribution: adopt
-      - name: Initialize Maven Version
-        run: ./mvnw -q org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version
       - name: GPG Check
         run: gpg -k
       - name: Release with Maven
@@ -29,4 +27,4 @@ jobs:
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           GPG_KEY_BASE64: ${{ secrets.GPG_KEY_BASE64 }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: ci/build-and-deploy-to-maven-central.sh
+        run: ./ci/build-and-deploy-to-maven-central.sh
