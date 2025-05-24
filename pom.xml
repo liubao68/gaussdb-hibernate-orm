@@ -28,6 +28,7 @@
     <packaging>jar</packaging>
 
     <name>GaussDB Hibernate Dialect</name>
+    <description>GaussDB Hibernate Dialect Implementation</description>
     <url>https://github.com/HuaweiCloudDeveloper/gaussdb-hibernate-orm</url>
 
     <properties>
@@ -50,6 +51,13 @@
         <connection>scm:git:https://github.com/HuaweiCloudDeveloper/gaussdb-hibernate-orm</connection>
         <url>https://github.com/HuaweiCloudDeveloper/gaussdb-hibernate-orm</url>
     </scm>
+
+    <developers>
+        <developer>
+            <name>Liu Bao</name>
+            <email>liubao68163@163.com</email>
+        </developer>
+    </developers>
 
     <dependencyManagement>
         <dependencies>
