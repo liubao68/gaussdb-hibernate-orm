@@ -1,17 +1,20 @@
 /*
- * SPDX-License-Identifier: Apache-2.0
- * Copyright Red Hat Inc. and Hibernate Authors
+ * Hibernate, Relational Persistence for Idiomatic Java
+ *
+ * License: GNU Lesser General Public License (LGPL), version 2.1 or later.
+ * See the lgpl.txt file in the root directory or <http://www.gnu.org/licenses/lgpl-2.1.html>.
  */
 package org.hibernate.community.dialect;
 
 import java.util.List;
 
 import org.hibernate.HibernateException;
+import org.hibernate.dialect.AbstractPostgreSQLStructJdbcType;
 import org.hibernate.procedure.internal.AbstractStandardCallableStatementSupport;
 import org.hibernate.procedure.spi.FunctionReturnImplementor;
 import org.hibernate.procedure.spi.ProcedureCallImplementor;
 import org.hibernate.procedure.spi.ProcedureParameterImplementor;
-import org.hibernate.type.OutputableType;
+import org.hibernate.query.OutputableType;
 import org.hibernate.query.spi.ProcedureParameterMetadataImplementor;
 import org.hibernate.sql.exec.internal.JdbcCallImpl;
 import org.hibernate.sql.exec.spi.JdbcCallParameterRegistration;
@@ -25,7 +28,7 @@ import jakarta.persistence.ParameterMode;
  *
  * @author liubao
  *
- * Notes: Original code of this class is based on PostgreSQLTruncFunction.
+ * Notes: Original code of this class is based on PostgreSQLCallableStatementSupport.
  */
 public class GaussDBCallableStatementSupport extends AbstractStandardCallableStatementSupport {
 	/**
@@ -68,7 +71,7 @@ public class GaussDBCallableStatementSupport extends AbstractStandardCallableSta
 				if ( firstParamIsRefCursor ) {
 					// validate that the parameter strategy is positional (cannot mix, and REF_CURSOR is inherently positional)
 					if ( parameterMetadata.hasNamedParameters() ) {
-						throw new HibernateException( "Cannot mix named parameters and REF_CURSOR parameter on GaussDB" );
+						throw new HibernateException( "Cannot mix named parameters and REF_CURSOR parameter on PostgreSQL" );
 					}
 					callMode = CallMode.CALL_RETURN;
 					startIndex = 1;
@@ -100,7 +103,7 @@ public class GaussDBCallableStatementSupport extends AbstractStandardCallableSta
 		else if ( firstParamIsRefCursor ) {
 			// validate that the parameter strategy is positional (cannot mix, and REF_CURSOR is inherently positional)
 			if ( parameterMetadata.hasNamedParameters() ) {
-				throw new HibernateException( "Cannot mix named parameters and REF_CURSOR parameter on GaussDB" );
+				throw new HibernateException( "Cannot mix named parameters and REF_CURSOR parameter on PostgreSQL" );
 			}
 			jdbcParameterOffset = 1;
 			startIndex = 1;
@@ -126,7 +129,7 @@ public class GaussDBCallableStatementSupport extends AbstractStandardCallableSta
 				final ProcedureParameterImplementor<?> parameter = registrations.get( i );
 				if ( !supportsProcedures && parameter.getMode() == ParameterMode.REF_CURSOR ) {
 					throw new HibernateException(
-							"GaussDB supports only one REF_CURSOR parameter, but multiple were registered" );
+							"PostgreSQL supports only one REF_CURSOR parameter, but multiple were registered" );
 				}
 				buffer.append( sep );
 				final JdbcCallParameterRegistration registration = parameter.toJdbcParameterRegistration(
@@ -138,9 +141,9 @@ public class GaussDBCallableStatementSupport extends AbstractStandardCallableSta
 				if ( parameter.getName() != null ) {
 					buffer.append( parameter.getName() ).append( " => " );
 				}
-				if ( type != null && type.getJdbcType() instanceof GaussDBAbstractStructuredJdbcType ) {
-					// We have to cast struct type parameters so that GaussDB understands nulls
-					castType = ( (GaussDBAbstractStructuredJdbcType) type.getJdbcType() ).getStructTypeName();
+				if ( type != null && type.getJdbcType() instanceof AbstractPostgreSQLStructJdbcType ) {
+					// We have to cast struct type parameters so that PostgreSQL understands nulls
+					castType = ( (AbstractPostgreSQLStructJdbcType) type.getJdbcType() ).getStructTypeName();
 					buffer.append( "cast(" );
 				}
 				else {

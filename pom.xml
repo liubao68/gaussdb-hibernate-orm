@@ -32,7 +32,7 @@
     <url>https://github.com/HuaweiCloudDeveloper/gaussdb-hibernate-orm</url>
 
     <properties>
-        <hibernate-version>7.0.0.Final</hibernate-version>
+        <hibernate-version>6.6.15.Final</hibernate-version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -74,7 +74,7 @@
             <dependency>
                 <groupId>org.jboss.logging</groupId>
                 <artifactId>jboss-logging</artifactId>
-                <version>3.6.1.Final</version>
+                <version>3.5.0.Final</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

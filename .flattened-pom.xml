@@ -21,6 +21,7 @@
   <artifactId>gaussdb-hibernate-dialect</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <name>GaussDB Hibernate Dialect</name>
+  <description>GaussDB Hibernate Dialect Implementation</description>
   <url>https://github.com/HuaweiCloudDeveloper/gaussdb-hibernate-orm</url>
   <licenses>
     <license>
@@ -29,6 +30,12 @@
       <distribution>repo</distribution>
     </license>
   </licenses>
+  <developers>
+    <developer>
+      <name>Liu Bao</name>
+      <email>liubao68163@163.com</email>
+    </developer>
+  </developers>
   <scm>
     <connection>scm:git:https://github.com/HuaweiCloudDeveloper/gaussdb-hibernate-orm</connection>
     <url>https://github.com/HuaweiCloudDeveloper/gaussdb-hibernate-orm</url>
@@ -37,7 +44,7 @@
     <dependency>
       <groupId>org.hibernate.orm</groupId>
       <artifactId>hibernate-core</artifactId>
-      <version>7.0.0.Final</version>
+      <version>6.6.15.Final</version>
       <scope>compile</scope>
       <optional>true</optional>
     </dependency>
@@ -50,7 +57,7 @@
     <dependency>
       <groupId>org.jboss.logging</groupId>
       <artifactId>jboss-logging</artifactId>
-      <version>3.6.1.Final</version>
+      <version>3.5.0.Final</version>
       <scope>compile</scope>
       <optional>true</optional>
     </dependency>

@@ -3,6 +3,7 @@
  * Copyright Red Hat Inc. and Hibernate Authors
  */
 package org.hibernate.community.dialect;
+
 import java.lang.reflect.Array;
 import java.sql.CallableStatement;
 import java.sql.ResultSet;
@@ -20,6 +21,8 @@ import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.TimeZone;
 
+import org.hibernate.dialect.StructAttributeValues;
+import org.hibernate.dialect.StructHelper;
 import org.hibernate.internal.util.CharSequenceHelper;
 import org.hibernate.metamodel.mapping.EmbeddableMappingType;
 import org.hibernate.metamodel.mapping.JdbcMapping;
@@ -37,13 +40,11 @@ import org.hibernate.type.descriptor.java.IntegerJavaType;
 import org.hibernate.type.descriptor.java.JavaType;
 import org.hibernate.type.descriptor.java.PrimitiveByteArrayJavaType;
 import org.hibernate.type.descriptor.jdbc.BasicExtractor;
-import org.hibernate.type.descriptor.jdbc.StructAttributeValues;
-import org.hibernate.type.descriptor.jdbc.StructHelper;
-import org.hibernate.type.descriptor.jdbc.StructuredJdbcType;
+import org.hibernate.type.descriptor.jdbc.StructJdbcType;
 import org.hibernate.type.spi.TypeConfiguration;
 
-import static org.hibernate.type.descriptor.jdbc.StructHelper.getEmbeddedPart;
-import static org.hibernate.type.descriptor.jdbc.StructHelper.instantiate;
+import static org.hibernate.dialect.StructHelper.getEmbeddedPart;
+import static org.hibernate.dialect.StructHelper.instantiate;
 import static org.hibernate.type.descriptor.DateTimeUtils.appendAsDate;
 import static org.hibernate.type.descriptor.DateTimeUtils.appendAsLocalTime;
 import static org.hibernate.type.descriptor.DateTimeUtils.appendAsTime;
@@ -59,7 +60,7 @@ import static org.hibernate.type.descriptor.DateTimeUtils.appendAsTimestampWithM
  *
  * Notes: Original code of this class is based on AbstractPostgreSQLStructJdbcType.
  */
-public abstract class GaussDBAbstractStructuredJdbcType implements StructuredJdbcType {
+public abstract class GaussDBAbstractStructuredJdbcType implements StructJdbcType {
 
 	private static final DateTimeFormatter LOCAL_DATE_TIME;
 	static {
@@ -192,7 +193,7 @@ public abstract class GaussDBAbstractStructuredJdbcType implements StructuredJdb
 		if ( returnEmbeddable ) {
 			final StructAttributeValues attributeValues = getAttributeValues( embeddableMappingType, orderMapping, array, options );
 			//noinspection unchecked
-			return (X) instantiate( embeddableMappingType, attributeValues );
+			return (X) instantiate( embeddableMappingType, attributeValues, options.getSessionFactory() );
 		}
 		else if ( inverseOrderMapping != null ) {
 			StructHelper.orderJdbcValues( embeddableMappingType, inverseOrderMapping, array.clone(), array );
@@ -452,7 +453,9 @@ public abstract class GaussDBAbstractStructuredJdbcType implements StructuredJdb
 						if ( string.charAt( i + 1 ) == '(' ) {
 							// This could be a nested struct
 							final JdbcMapping jdbcMapping = getJdbcValueSelectable( column ).getJdbcMapping();
-							if ( jdbcMapping.getJdbcType() instanceof GaussDBAbstractStructuredJdbcType structJdbcType ) {
+							if ( jdbcMapping.getJdbcType() instanceof GaussDBAbstractStructuredJdbcType ) {
+								final GaussDBAbstractStructuredJdbcType structJdbcType;
+								structJdbcType = (GaussDBAbstractStructuredJdbcType) jdbcMapping.getJdbcType();
 								final Object[] subValues = new Object[structJdbcType.embeddableMappingType.getJdbcValueCount()];
 								final int subEnd = structJdbcType.deserializeStruct(
 										string,
@@ -469,7 +472,8 @@ public abstract class GaussDBAbstractStructuredJdbcType implements StructuredJdb
 											subValues,
 											options
 									);
-									values[column] = instantiate( structJdbcType.embeddableMappingType, attributeValues );
+									final Object subValue = instantiate( structJdbcType.embeddableMappingType, attributeValues, options.getSessionFactory() );
+									values[column] = subValue;
 								}
 								else {
 									if ( structJdbcType.inverseOrderMapping != null ) {
@@ -502,7 +506,8 @@ public abstract class GaussDBAbstractStructuredJdbcType implements StructuredJdb
 						else if ( string.charAt( i + 1 ) == '{' ) {
 							// This could be a quoted array
 							final JdbcMapping jdbcMapping = getJdbcValueSelectable( column ).getJdbcMapping();
-							if ( jdbcMapping instanceof BasicPluralType<?, ?> pluralType ) {
+							if ( jdbcMapping instanceof BasicPluralType<?, ?> ) {
+								final BasicPluralType<?, ?> pluralType = (BasicPluralType<?, ?>) jdbcMapping;
 								final ArrayList<Object> arrayList = new ArrayList<>();
 								//noinspection unchecked
 								final int subEnd = deserializeArray(
@@ -848,7 +853,9 @@ public abstract class GaussDBAbstractStructuredJdbcType implements StructuredJdb
 						i += expectedQuotes - 1;
 						if ( string.charAt( i + 1 ) == '(' ) {
 							// This could be a nested struct
-							if ( elementType.getJdbcType() instanceof GaussDBAbstractStructuredJdbcType structJdbcType ) {
+							if ( elementType.getJdbcType() instanceof GaussDBAbstractStructuredJdbcType ) {
+								final GaussDBAbstractStructuredJdbcType structJdbcType;
+								structJdbcType = (GaussDBAbstractStructuredJdbcType) elementType.getJdbcType();
 								final Object[] subValues = new Object[structJdbcType.embeddableMappingType.getJdbcValueCount()];
 								final int subEnd = structJdbcType.deserializeStruct(
 										string,
@@ -865,7 +872,8 @@ public abstract class GaussDBAbstractStructuredJdbcType implements StructuredJdb
 											subValues,
 											options
 									);
-									values.add( instantiate( structJdbcType.embeddableMappingType, attributeValues ) );
+									final Object subValue = instantiate( structJdbcType.embeddableMappingType, attributeValues, options.getSessionFactory() );
+									values.add( subValue );
 								}
 								else {
 									if ( structJdbcType.inverseOrderMapping != null ) {
@@ -1001,7 +1009,9 @@ public abstract class GaussDBAbstractStructuredJdbcType implements StructuredJdb
 			int count = 0;
 			for ( int i = 0; i < size; i++ ) {
 				final ValuedModelPart modelPart = getEmbeddedPart( embeddableMappingType, orderMapping[i] );
-				if ( modelPart.getMappedType() instanceof EmbeddableMappingType embeddableMappingType ) {
+				final MappingType mappedType = modelPart.getMappedType();
+				if ( mappedType instanceof EmbeddableMappingType ) {
+					final EmbeddableMappingType embeddableMappingType = (EmbeddableMappingType) mappedType;
 					final SelectableMapping aggregateMapping = embeddableMappingType.getAggregateMapping();
 					if ( aggregateMapping == null ) {
 						final SelectableMapping subSelectable = embeddableMappingType.getJdbcValueSelectable( jdbcValueSelectableIndex - count );
@@ -1211,9 +1221,9 @@ public abstract class GaussDBAbstractStructuredJdbcType implements StructuredJdb
 					embeddableMappingType.getJdbcValueSelectable( i ) :
 					embeddableMappingType.getJdbcValueSelectable( orderMapping[i] );
 			final JdbcMapping jdbcMapping = selectableMapping.getJdbcMapping();
-			if ( jdbcMapping.getJdbcType() instanceof GaussDBAbstractStructuredJdbcType structJdbcType ) {
+			if ( jdbcMapping.getJdbcType() instanceof GaussDBAbstractStructuredJdbcType ) {
 				appender.quoteStart();
-				structJdbcType.serializeJdbcValuesTo(
+				( (GaussDBAbstractStructuredJdbcType) jdbcMapping.getJdbcType() ).serializeJdbcValuesTo(
 						appender,
 						options,
 						(Object[]) jdbcValue,
@@ -1239,13 +1249,13 @@ public abstract class GaussDBAbstractStructuredJdbcType implements StructuredJdb
 			case SqlTypes.TINYINT:
 			case SqlTypes.SMALLINT:
 			case SqlTypes.INTEGER:
-				if ( subValue instanceof Boolean booleanValue ) {
+				if ( subValue instanceof Boolean ) {
 					// BooleanJavaType has this as an implicit conversion
-					appender.append( booleanValue ? '1' : '0' );
+					appender.append( (Boolean) subValue ? '1' : '0' );
 					break;
 				}
-				if ( subValue instanceof Enum<?> enumValue ) {
-					appender.appendSql( enumValue.ordinal() );
+				if ( subValue instanceof Enum ) {
+					appender.appendSql( ((Enum<?>) subValue).ordinal() );
 					break;
 				}
 			case SqlTypes.BOOLEAN:
@@ -1263,9 +1273,9 @@ public abstract class GaussDBAbstractStructuredJdbcType implements StructuredJdb
 			case SqlTypes.NCHAR:
 			case SqlTypes.VARCHAR:
 			case SqlTypes.NVARCHAR:
-				if ( subValue instanceof Boolean booleanValue ) {
+				if ( subValue instanceof Boolean ) {
 					// BooleanJavaType has this as an implicit conversion
-					appender.append( booleanValue ? 'Y' : 'N' );
+					appender.append( (Boolean) subValue ? 'Y' : 'N' );
 					break;
 				}
 			case SqlTypes.LONGVARCHAR:
@@ -1400,7 +1410,8 @@ public abstract class GaussDBAbstractStructuredJdbcType implements StructuredJdb
 		final MappingType mappedType = modelPart.getMappedType();
 		final int jdbcValueCount;
 		final Object rawJdbcValue = rawJdbcValues[jdbcIndex];
-		if ( mappedType instanceof EmbeddableMappingType embeddableMappingType ) {
+		if ( mappedType instanceof EmbeddableMappingType ) {
+			final EmbeddableMappingType embeddableMappingType = (EmbeddableMappingType) mappedType;
 			if ( embeddableMappingType.getAggregateMapping() != null ) {
 				jdbcValueCount = 1;
 				attributeValues.setAttributeValue( attributeIndex, rawJdbcValue );
@@ -1415,7 +1426,10 @@ public abstract class GaussDBAbstractStructuredJdbcType implements StructuredJdb
 						subJdbcValues,
 						options
 				);
-				attributeValues.setAttributeValue( attributeIndex, instantiate( embeddableMappingType, subValues ) );
+				attributeValues.setAttributeValue(
+						attributeIndex,
+						instantiate( embeddableMappingType, subValues, options.getSessionFactory() )
+				);
 			}
 		}
 		else {
@@ -1438,14 +1452,14 @@ public abstract class GaussDBAbstractStructuredJdbcType implements StructuredJdb
 		appender.append( '"' );
 		switch ( jdbcMapping.getJdbcType().getJdbcTypeCode() ) {
 			case SqlTypes.DATE:
-				if ( value instanceof java.util.Date date ) {
-					appendAsDate( appender, date );
+				if ( value instanceof java.util.Date ) {
+					appendAsDate( appender, (java.util.Date) value );
 				}
-				else if ( value instanceof java.util.Calendar calendar ) {
-					appendAsDate( appender, calendar );
+				else if ( value instanceof java.util.Calendar ) {
+					appendAsDate( appender, (java.util.Calendar) value );
 				}
-				else if ( value instanceof TemporalAccessor temporalAccessor ) {
-					appendAsDate( appender, temporalAccessor );
+				else if ( value instanceof TemporalAccessor ) {
+					appendAsDate( appender, (TemporalAccessor) value );
 				}
 				else {
 					appendAsDate(
@@ -1457,13 +1471,14 @@ public abstract class GaussDBAbstractStructuredJdbcType implements StructuredJdb
 			case SqlTypes.TIME:
 			case SqlTypes.TIME_WITH_TIMEZONE:
 			case SqlTypes.TIME_UTC:
-				if ( value instanceof java.util.Date date ) {
-					appendAsTime( appender, date, jdbcTimeZone );
+				if ( value instanceof java.util.Date ) {
+					appendAsTime( appender, (java.util.Date) value, jdbcTimeZone );
 				}
-				else if ( value instanceof java.util.Calendar calendar ) {
-					appendAsTime( appender, calendar, jdbcTimeZone );
+				else if ( value instanceof java.util.Calendar ) {
+					appendAsTime( appender, (java.util.Calendar) value, jdbcTimeZone );
 				}
-				else if ( value instanceof TemporalAccessor temporalAccessor ) {
+				else if ( value instanceof TemporalAccessor ) {
+					final TemporalAccessor temporalAccessor = (TemporalAccessor) value;
 					if ( temporalAccessor.isSupported( ChronoField.OFFSET_SECONDS ) ) {
 						appendAsTime( appender, temporalAccessor, true, jdbcTimeZone );
 					}
@@ -1482,13 +1497,14 @@ public abstract class GaussDBAbstractStructuredJdbcType implements StructuredJdb
 			case SqlTypes.TIMESTAMP:
 			case SqlTypes.TIMESTAMP_WITH_TIMEZONE:
 			case SqlTypes.TIMESTAMP_UTC:
-				if ( value instanceof java.util.Date date ) {
-					appendAsTimestampWithMicros( appender, date, jdbcTimeZone );
+				if ( value instanceof java.util.Date ) {
+					appendAsTimestampWithMicros( appender, (java.util.Date) value, jdbcTimeZone );
 				}
-				else if ( value instanceof java.util.Calendar calendar ) {
-					appendAsTimestampWithMillis( appender, calendar, jdbcTimeZone );
+				else if ( value instanceof java.util.Calendar ) {
+					appendAsTimestampWithMillis( appender, (java.util.Calendar) value, jdbcTimeZone );
 				}
-				else if ( value instanceof TemporalAccessor temporalAccessor ) {
+				else if ( value instanceof TemporalAccessor ) {
+					final TemporalAccessor temporalAccessor = (TemporalAccessor) value;
 					appendAsTimestampWithMicros( appender, temporalAccessor, temporalAccessor.isSupported( ChronoField.OFFSET_SECONDS ), jdbcTimeZone );
 				}
 				else {
