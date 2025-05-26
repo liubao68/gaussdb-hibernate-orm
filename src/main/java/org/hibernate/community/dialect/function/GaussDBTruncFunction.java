@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.dialect.function.TruncFunction;
-import org.hibernate.metamodel.model.domain.ReturnableType;
+import org.hibernate.query.ReturnableType;
 import org.hibernate.query.spi.QueryEngine;
 import org.hibernate.query.sqm.function.SelfRenderingSqmFunction;
 import org.hibernate.query.sqm.produce.function.ArgumentTypesValidator;

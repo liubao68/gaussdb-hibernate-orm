@@ -6,12 +6,10 @@ package org.hibernate.community.dialect;
 
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.TemporalType;
-import jakarta.persistence.Timeout;
 import org.hibernate.Length;
 import org.hibernate.LockMode;
 import org.hibernate.LockOptions;
 import org.hibernate.QueryTimeoutException;
-import org.hibernate.Timeouts;
 import org.hibernate.boot.model.FunctionContributions;
 import org.hibernate.boot.model.TypeContributions;
 import org.hibernate.community.dialect.identity.GaussDBIdentityColumnSupport;
@@ -51,8 +49,7 @@ import org.hibernate.metamodel.spi.RuntimeModelCreationContext;
 import org.hibernate.persister.entity.mutation.EntityMutationTarget;
 import org.hibernate.procedure.spi.CallableStatementSupport;
 import org.hibernate.query.SemanticException;
-import org.hibernate.query.common.FetchClauseType;
-import org.hibernate.query.common.TemporalUnit;
+import org.hibernate.query.sqm.TemporalUnit;
 import org.hibernate.query.spi.QueryOptions;
 import org.hibernate.query.sqm.CastType;
 import org.hibernate.query.sqm.IntervalType;
@@ -106,7 +103,7 @@ import java.util.Map;
 import java.util.TimeZone;
 
 import static org.hibernate.exception.spi.TemplatedViolatedConstraintNameExtractor.extractUsingTemplate;
-import static org.hibernate.query.common.TemporalUnit.EPOCH;
+import static org.hibernate.query.sqm.TemporalUnit.EPOCH;
 import static org.hibernate.type.SqlTypes.ARRAY;
 import static org.hibernate.type.SqlTypes.BINARY;
 import static org.hibernate.type.SqlTypes.CHAR;
@@ -153,17 +150,6 @@ public class GaussDBDialect extends Dialect {
 	protected final static DatabaseVersion MINIMUM_VERSION = DatabaseVersion.make( 2 );
 
 	private final UniqueDelegate uniqueDelegate = new CreateTableUniqueDelegate(this);
-	private final StandardTableExporter gaussDBTableExporter = new StandardTableExporter( this ) {
-		@Override
-		protected void applyAggregateColumnCheck(StringBuilder buf, AggregateColumn aggregateColumn) {
-			final JdbcType jdbcType = aggregateColumn.getType().getJdbcType();
-			if ( jdbcType.isXml() ) {
-				// Requires the use of xmltable which is not supported in check constraints
-				return;
-			}
-			super.applyAggregateColumnCheck( buf, aggregateColumn );
-		}
-	};
 
 	private final OptionalTableUpdateStrategy optionalTableUpdateStrategy;
 
@@ -513,11 +499,6 @@ public class GaussDBDialect extends Dialect {
 	}
 
 	@Override
-	public String getDefaultOrdinalityColumnName() {
-		return "ordinality";
-	}
-
-	@Override
 	public NameQualifierSupport getNameQualifierSupport() {
 		// This method is overridden so the correct value will be returned when
 		// DatabaseMetaData is not available.
@@ -654,11 +635,6 @@ public class GaussDBDialect extends Dialect {
 	@Override
 	public boolean supportsCaseInsensitiveLike() {
 		return true;
-	}
-
-	@Override
-	public GenerationType getNativeValueGenerationStrategy() {
-		return GenerationType.SEQUENCE;
 	}
 
 	@Override
@@ -897,7 +873,7 @@ public class GaussDBDialect extends Dialect {
 
 	@Override
 	public boolean supportsStandardArrays() {
-		return true;
+		return false;
 	}
 
 	@Override
@@ -1042,40 +1018,16 @@ public class GaussDBDialect extends Dialect {
 		}
 	}
 
-	private String withTimeout(String lockString, Timeout timeout) {
-		return switch (timeout.milliseconds()) {
-			case Timeouts.NO_WAIT_MILLI -> supportsNoWait() ? lockString + " nowait" : lockString;
-			case Timeouts.SKIP_LOCKED_MILLI -> supportsSkipLocked() ? lockString + " skip locked" : lockString;
-			default -> lockString;
-		};
-	}
-
-	@Override
-	public String getWriteLockString(Timeout timeout) {
-		return withTimeout( getForUpdateString(), timeout );
-	}
-
-	@Override
-	public String getWriteLockString(String aliases, Timeout timeout) {
-		return withTimeout( getForUpdateString( aliases ), timeout );
-	}
-
-	@Override
-	public String getReadLockString(Timeout timeout) {
-		return withTimeout(" for share", timeout );
-	}
-
-	@Override
-	public String getReadLockString(String aliases, Timeout timeout) {
-		return withTimeout(" for share of " + aliases, timeout );
-	}
 
 	private String withTimeout(String lockString, int timeout) {
-		return switch (timeout) {
-			case Timeouts.NO_WAIT_MILLI -> supportsNoWait() ? lockString + " nowait" : lockString;
-			case Timeouts.SKIP_LOCKED_MILLI -> supportsSkipLocked() ? lockString + " skip locked" : lockString;
-			default -> lockString;
-		};
+		switch (timeout) {
+			case LockOptions.NO_WAIT:
+				return supportsNoWait() ? lockString + " nowait" : lockString;
+			case LockOptions.SKIP_LOCKED:
+				return supportsSkipLocked() ? lockString + " skip locked" : lockString;
+			default:
+				return lockString;
+		}
 	}
 
 	@Override
@@ -1172,18 +1124,8 @@ public class GaussDBDialect extends Dialect {
 	}
 
 	@Override
-	public boolean supportsFetchClause(FetchClauseType type) {
-		return false;
-	}
-
-	@Override
 	public String getForUpdateString() {
 		return " for update";
-	}
-
-	@Override
-	public boolean supportsFilterClause() {
-		return false;
 	}
 
 	@Override
@@ -1225,7 +1167,6 @@ public class GaussDBDialect extends Dialect {
 		jdbcTypeRegistry.addDescriptorIfAbsent( GaussDBCastingIntervalSecondJdbcType.INSTANCE );
 		jdbcTypeRegistry.addDescriptorIfAbsent( GaussDBStructuredJdbcType.INSTANCE );
 		jdbcTypeRegistry.addDescriptorIfAbsent( GaussDBCastingJsonJdbcType.JSONB_INSTANCE );
-		jdbcTypeRegistry.addTypeConstructorIfAbsent( GaussDBCastingJsonArrayJdbcTypeConstructor.JSONB_INSTANCE );
 
 		// GaussDB requires a custom binder for binding untyped nulls as VARBINARY
 		typeContributions.contributeJdbcType( ObjectNullAsBinaryTypeJdbcType.INSTANCE );
@@ -1251,11 +1192,6 @@ public class GaussDBDialect extends Dialect {
 	@Override
 	public UniqueDelegate getUniqueDelegate() {
 		return uniqueDelegate;
-	}
-
-	@Override
-	public Exporter<Table> getTableExporter() {
-		return gaussDBTableExporter;
 	}
 
 	/**
@@ -1339,11 +1275,6 @@ public class GaussDBDialect extends Dialect {
 
 	@Override
 	public boolean supportsFromClauseInUpdate() {
-		return true;
-	}
-
-	@Override
-	public boolean supportsBindingNullSqlTypeForSetNull() {
 		return true;
 	}
 }

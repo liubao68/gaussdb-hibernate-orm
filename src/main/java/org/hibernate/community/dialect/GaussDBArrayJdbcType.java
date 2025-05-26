@@ -35,9 +35,8 @@ public class GaussDBArrayJdbcType extends ArrayJdbcType {
 
 	@Override
 	public <X> ValueBinder<X> getBinder(final JavaType<X> javaTypeDescriptor) {
-		@SuppressWarnings("unchecked")
-		final BasicPluralJavaType<X> pluralJavaType = (BasicPluralJavaType<X>) javaTypeDescriptor;
-		final ValueBinder<X> elementBinder = getElementJdbcType().getBinder( pluralJavaType.getElementJavaType() );
+		//noinspection unchecked
+		final ValueBinder<Object> elementBinder = getElementJdbcType().getBinder( ( (BasicPluralJavaType<Object>) javaTypeDescriptor ).getElementJavaType() );
 		return new BasicBinder<>( javaTypeDescriptor, this ) {
 
 			@Override
@@ -68,7 +67,7 @@ public class GaussDBArrayJdbcType extends ArrayJdbcType {
 
 				final JdbcType elementJdbcType = arrayJdbcType.getElementJdbcType();
 				if ( elementJdbcType instanceof AggregateJdbcType ) {
-					// The GaussDB JDBC driver does not support arrays of structs, which contain byte[]
+					// The PostgreSQL JDBC driver does not support arrays of structs, which contain byte[]
 					final AggregateJdbcType aggregateJdbcType = (AggregateJdbcType) elementJdbcType;
 					final Object[] domainObjects = getJavaType().unwrap(
 							value,
@@ -77,9 +76,7 @@ public class GaussDBArrayJdbcType extends ArrayJdbcType {
 					);
 					objects = new Object[domainObjects.length];
 					for ( int i = 0; i < domainObjects.length; i++ ) {
-						if ( domainObjects[i] != null ) {
-							objects[i] = aggregateJdbcType.createJdbcValue( domainObjects[i], options );
-						}
+						objects[i] = aggregateJdbcType.createJdbcValue( domainObjects[i], options );
 					}
 				}
 				else {

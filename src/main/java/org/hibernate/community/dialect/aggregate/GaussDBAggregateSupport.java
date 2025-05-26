@@ -8,9 +8,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.hibernate.dialect.Dialect;
+import org.hibernate.dialect.XmlHelper;
 import org.hibernate.dialect.aggregate.AggregateSupport;
 import org.hibernate.dialect.aggregate.AggregateSupportImpl;
 import org.hibernate.internal.util.StringHelper;
+import org.hibernate.mapping.AggregateColumn;
 import org.hibernate.mapping.Column;
 import org.hibernate.metamodel.mapping.EmbeddableMappingType;
 import org.hibernate.metamodel.mapping.JdbcMapping;
@@ -23,7 +25,6 @@ import org.hibernate.sql.ast.spi.SqlAppender;
 import org.hibernate.type.BasicPluralType;
 import org.hibernate.type.descriptor.jdbc.AggregateJdbcType;
 import org.hibernate.type.descriptor.jdbc.JdbcType;
-import org.hibernate.type.descriptor.jdbc.XmlHelper;
 import org.hibernate.type.spi.TypeConfiguration;
 
 import static org.hibernate.type.SqlTypes.ARRAY;
@@ -71,15 +72,13 @@ public class GaussDBAggregateSupport extends AggregateSupportImpl {
 			String placeholder,
 			String aggregateParentReadExpression,
 			String columnExpression,
-			int aggregateColumnTypeCode,
-			SqlTypedMapping column,
-			TypeConfiguration typeConfiguration) {
-		switch ( aggregateColumnTypeCode ) {
+			AggregateColumn aggregateColumn,
+			Column column) {
+		switch ( aggregateColumn.getTypeCode() ) {
 			case JSON_ARRAY:
 			case JSON:
-				switch ( column.getJdbcMapping().getJdbcType().getDefaultSqlTypeCode() ) {
+				switch ( column.getTypeCode() ) {
 					case JSON:
-					case JSON_ARRAY:
 						return template.replace(
 								placeholder,
 								aggregateParentReadExpression + "->'" + columnExpression + "'"
@@ -93,7 +92,7 @@ public class GaussDBAggregateSupport extends AggregateSupportImpl {
 								"decode(" + aggregateParentReadExpression + "->>'" + columnExpression + "','hex')"
 						);
 					case ARRAY:
-						final BasicPluralType<?, ?> pluralType = (BasicPluralType<?, ?>) column.getJdbcMapping();
+						final BasicPluralType<?, ?> pluralType = (BasicPluralType<?, ?>) column.getValue().getType();
 						switch ( pluralType.getElementType().getJdbcType().getDefaultSqlTypeCode() ) {
 							case BOOLEAN:
 							case TINYINT:
@@ -107,7 +106,7 @@ public class GaussDBAggregateSupport extends AggregateSupportImpl {
 								// because casting a jsonb[] to text[] will not omit the quotes of the jsonb text values
 								return template.replace(
 										placeholder,
-										"cast(array(select jsonb_array_elements(" + aggregateParentReadExpression + "->'" + columnExpression + "')) as " + column.getColumnDefinition() + ')'
+										"cast(array(select jsonb_array_elements(" + aggregateParentReadExpression + "->'" + columnExpression + "')) as " + column.getTypeName() + ')'
 								);
 							case BINARY:
 							case VARBINARY:
@@ -120,47 +119,13 @@ public class GaussDBAggregateSupport extends AggregateSupportImpl {
 							default:
 								return template.replace(
 										placeholder,
-										"cast(array(select jsonb_array_elements_text(" + aggregateParentReadExpression + "->'" + columnExpression + "')) as " + column.getColumnDefinition() + ')'
+										"cast(array(select jsonb_array_elements_text(" + aggregateParentReadExpression + "->'" + columnExpression + "')) as " + column.getTypeName() + ')'
 								);
 						}
 					default:
 						return template.replace(
 								placeholder,
-								"cast(" + aggregateParentReadExpression + "->>'" + columnExpression + "' as " + column.getColumnDefinition() + ')'
-						);
-				}
-			case XML_ARRAY:
-			case SQLXML:
-				switch ( column.getJdbcMapping().getJdbcType().getDefaultSqlTypeCode() ) {
-					case SQLXML:
-						return template.replace(
-								placeholder,
-								XML_EXTRACT_START + xmlExtractArguments( aggregateParentReadExpression, columnExpression + "/*" ) + XML_EXTRACT_END
-						);
-					case XML_ARRAY:
-						if ( typeConfiguration.getCurrentBaseSqlTypeIndicators().isXmlFormatMapperLegacyFormatEnabled() ) {
-							throw new IllegalArgumentException( "XML array '" + columnExpression + "' in '" + aggregateParentReadExpression + "' is not supported with legacy format enabled." );
-						}
-						else {
-							return template.replace(
-									placeholder,
-									"xmlelement(name \"Collection\",(select xmlagg(t.v order by t.i) from xmltable(" + xmlExtractArguments( aggregateParentReadExpression, columnExpression + "/*" ) + " columns v xml path '.', i for ordinality)t))"
-							);
-						}
-					case BINARY:
-					case VARBINARY:
-					case LONG32VARBINARY:
-						// We encode binary data as hex, so we have to decode here
-						return template.replace(
-								placeholder,
-								"decode((select t.v from xmltable(" + xmlExtractArguments( aggregateParentReadExpression, columnExpression )+ " columns v text path '.') t),'hex')"
-						);
-					case ARRAY:
-						throw new UnsupportedOperationException( "Transforming XML_ARRAY to native arrays is not supported on GaussDB!" );
-					default:
-						return template.replace(
-								placeholder,
-								"(select t.v from xmltable(" + xmlExtractArguments( aggregateParentReadExpression, columnExpression ) + " columns v " + column.getColumnDefinition() + " path '.') t)"
+								"cast(" + aggregateParentReadExpression + "->>'" + columnExpression + "' as " + column.getTypeName() + ')'
 						);
 				}
 			case STRUCT:
@@ -168,7 +133,7 @@ public class GaussDBAggregateSupport extends AggregateSupportImpl {
 			case STRUCT_TABLE:
 				return template.replace( placeholder, '(' + aggregateParentReadExpression + ")." + columnExpression );
 		}
-		throw new IllegalArgumentException( "Unsupported aggregate SQL type: " + aggregateColumnTypeCode );
+		throw new IllegalArgumentException( "Unsupported aggregate SQL type: " + aggregateColumn.getTypeCode() );
 	}
 
 	private static String xmlExtractArguments(String aggregateParentReadExpression, String xpathFragment) {
@@ -252,21 +217,19 @@ public class GaussDBAggregateSupport extends AggregateSupportImpl {
 	public String aggregateComponentAssignmentExpression(
 			String aggregateParentAssignmentExpression,
 			String columnExpression,
-			int aggregateColumnTypeCode,
+			AggregateColumn aggregateColumn,
 			Column column) {
-		switch ( aggregateColumnTypeCode ) {
+		switch ( aggregateColumn.getTypeCode() ) {
 			case JSON:
 			case JSON_ARRAY:
-			case SQLXML:
-			case XML_ARRAY:
-				// For JSON/XML we always have to replace the whole object
+				// For JSON we always have to replace the whole object
 				return aggregateParentAssignmentExpression;
 			case STRUCT:
 			case STRUCT_ARRAY:
 			case STRUCT_TABLE:
 				return aggregateParentAssignmentExpression + "." + columnExpression;
 		}
-		throw new IllegalArgumentException( "Unsupported aggregate SQL type: " + aggregateColumnTypeCode );
+		throw new IllegalArgumentException( "Unsupported aggregate SQL type: " + aggregateColumn.getTypeCode() );
 	}
 
 	@Override
@@ -294,8 +257,6 @@ public class GaussDBAggregateSupport extends AggregateSupportImpl {
 		switch ( aggregateSqlTypeCode ) {
 			case JSON:
 				return new RootJsonWriteExpression( aggregateColumn, columnsToUpdate );
-			case SQLXML:
-				return new RootXmlWriteExpression( aggregateColumn, columnsToUpdate );
 		}
 		throw new IllegalArgumentException( "Unsupported aggregate SQL type: " + aggregateSqlTypeCode );
 	}
@@ -432,200 +393,6 @@ public class GaussDBAggregateSupport extends AggregateSupportImpl {
 			// so we have to be pessimistic and avoid ambiguities
 			translator.render( expression.getValueExpression( selectableMapping ), SqlAstNodeRenderingMode.NO_UNTYPED );
 			sb.append( customWriteExpressionEnd );
-		}
-	}
-
-	interface XmlWriteExpression {
-		void append(
-				SqlAppender sb,
-				String path,
-				SqlAstTranslator<?> translator,
-				AggregateColumnWriteExpression expression);
-	}
-	private static class AggregateXmlWriteExpression implements XmlWriteExpression {
-
-		private final SelectableMapping selectableMapping;
-		private final String columnDefinition;
-		private final LinkedHashMap<String, XmlWriteExpression> subExpressions = new LinkedHashMap<>();
-
-		private AggregateXmlWriteExpression(SelectableMapping selectableMapping, String columnDefinition) {
-			this.selectableMapping = selectableMapping;
-			this.columnDefinition = columnDefinition;
-		}
-
-		protected void initializeSubExpressions(SelectableMapping aggregateColumn, SelectableMapping[] columns) {
-			for ( SelectableMapping column : columns ) {
-				final SelectablePath selectablePath = column.getSelectablePath();
-				final SelectablePath[] parts = selectablePath.getParts();
-				AggregateXmlWriteExpression currentAggregate = this;
-				for ( int i = 1; i < parts.length - 1; i++ ) {
-					final AggregateJdbcType aggregateJdbcType = (AggregateJdbcType) currentAggregate.selectableMapping.getJdbcMapping().getJdbcType();
-					final EmbeddableMappingType embeddableMappingType = aggregateJdbcType.getEmbeddableMappingType();
-					final int selectableIndex = embeddableMappingType.getSelectableIndex( parts[i].getSelectableName() );
-					currentAggregate = (AggregateXmlWriteExpression) currentAggregate.subExpressions.computeIfAbsent(
-							parts[i].getSelectableName(),
-							k -> new AggregateXmlWriteExpression( embeddableMappingType.getJdbcValueSelectable( selectableIndex ), columnDefinition )
-					);
-				}
-				final String customWriteExpression = column.getWriteExpression();
-				currentAggregate.subExpressions.put(
-						parts[parts.length - 1].getSelectableName(),
-						new BasicXmlWriteExpression(
-								column,
-								xmlCustomWriteExpression( customWriteExpression, column.getJdbcMapping() )
-						)
-				);
-			}
-			passThroughUnsetSubExpressions( aggregateColumn );
-		}
-
-		protected void passThroughUnsetSubExpressions(SelectableMapping aggregateColumn) {
-			final AggregateJdbcType aggregateJdbcType = (AggregateJdbcType) aggregateColumn.getJdbcMapping().getJdbcType();
-			final EmbeddableMappingType embeddableMappingType = aggregateJdbcType.getEmbeddableMappingType();
-			final int jdbcValueCount = embeddableMappingType.getJdbcValueCount();
-			for ( int i = 0; i < jdbcValueCount; i++ ) {
-				final SelectableMapping selectableMapping = embeddableMappingType.getJdbcValueSelectable( i );
-
-				final XmlWriteExpression xmlWriteExpression = subExpressions.get( selectableMapping.getSelectableName() );
-				if ( xmlWriteExpression == null ) {
-					subExpressions.put(
-							selectableMapping.getSelectableName(),
-							new PassThroughXmlWriteExpression( selectableMapping )
-					);
-				}
-				else if ( xmlWriteExpression instanceof AggregateXmlWriteExpression writeExpression ) {
-					writeExpression.passThroughUnsetSubExpressions( selectableMapping );
-				}
-			}
-		}
-
-		protected String getTagName() {
-			return selectableMapping.getSelectableName();
-		}
-
-		@Override
-		public void append(
-				SqlAppender sb,
-				String path,
-				SqlAstTranslator<?> translator,
-				AggregateColumnWriteExpression expression) {
-			sb.append( "xmlelement(name " );
-			sb.appendDoubleQuoteEscapedString( getTagName() );
-			sb.append( ",xmlconcat" );
-			char separator = '(';
-			for ( Map.Entry<String, XmlWriteExpression> entry : subExpressions.entrySet() ) {
-				sb.append( separator );
-
-				final XmlWriteExpression value = entry.getValue();
-				if ( value instanceof AggregateXmlWriteExpression ) {
-					final String subPath = XML_QUERY_START + xmlExtractArguments( path, entry.getKey() ) + XML_QUERY_END;
-					value.append( sb, subPath, translator, expression );
-				}
-				else {
-					value.append( sb, path, translator, expression );
-				}
-				separator = ',';
-			}
-			sb.append( "))" );
-		}
-	}
-
-	private static class RootXmlWriteExpression extends AggregateXmlWriteExpression
-			implements WriteExpressionRenderer {
-		private final String path;
-
-		RootXmlWriteExpression(SelectableMapping aggregateColumn, SelectableMapping[] columns) {
-			super( aggregateColumn, aggregateColumn.getColumnDefinition() );
-			path = aggregateColumn.getSelectionExpression();
-			initializeSubExpressions( aggregateColumn, columns );
-		}
-
-		@Override
-		protected String getTagName() {
-			return XmlHelper.ROOT_TAG;
-		}
-
-		@Override
-		public void render(
-				SqlAppender sqlAppender,
-				SqlAstTranslator<?> translator,
-				AggregateColumnWriteExpression aggregateColumnWriteExpression,
-				String qualifier) {
-			final String basePath;
-			if ( qualifier == null || qualifier.isBlank() ) {
-				basePath = path;
-			}
-			else {
-				basePath = qualifier + "." + path;
-			}
-			append( sqlAppender, XML_QUERY_START + "'/" + getTagName() + "' passing " + basePath + XML_QUERY_END, translator, aggregateColumnWriteExpression );
-		}
-	}
-	private static class BasicXmlWriteExpression implements XmlWriteExpression {
-
-		private final SelectableMapping selectableMapping;
-		private final String[] customWriteExpressionParts;
-
-		BasicXmlWriteExpression(SelectableMapping selectableMapping, String customWriteExpression) {
-			this.selectableMapping = selectableMapping;
-			if ( customWriteExpression.equals( "?" ) ) {
-				this.customWriteExpressionParts = new String[]{ "", "" };
-			}
-			else {
-				assert !customWriteExpression.startsWith( "?" );
-				final String[] parts = StringHelper.split( "?", customWriteExpression );
-				assert parts.length == 2 || (parts.length & 1) == 1;
-				this.customWriteExpressionParts = parts;
-			}
-		}
-
-		@Override
-		public void append(
-				SqlAppender sb,
-				String path,
-				SqlAstTranslator<?> translator,
-				AggregateColumnWriteExpression expression) {
-			final JdbcType jdbcType = selectableMapping.getJdbcMapping().getJdbcType();
-			final boolean isArray = jdbcType.getDefaultSqlTypeCode() == XML_ARRAY;
-			sb.append( "xmlelement(name " );
-			sb.appendDoubleQuoteEscapedString( selectableMapping.getSelectableName() );
-			sb.append( ',' );
-			if ( isArray ) {
-				// Remove the <Collection> tag to wrap the value into the selectable specific tag
-				sb.append( "(select xmlagg(t.v order by t.i) from xmltable('/Collection/*' passing " );
-			}
-			sb.append( customWriteExpressionParts[0] );
-			for ( int i = 1; i < customWriteExpressionParts.length; i++ ) {
-				// We use NO_UNTYPED here so that expressions which require type inference are casted explicitly,
-				// since we don't know how the custom write expression looks like where this is embedded,
-				// so we have to be pessimistic and avoid ambiguities
-				translator.render( expression.getValueExpression( selectableMapping ), SqlAstNodeRenderingMode.NO_UNTYPED );
-				sb.append( customWriteExpressionParts[i] );
-			}
-			if ( isArray ) {
-				sb.append( " columns v xml path '.', i for ordinality)t)" );
-			}
-			sb.append( ')' );
-		}
-	}
-
-	private static class PassThroughXmlWriteExpression implements XmlWriteExpression {
-
-		private final SelectableMapping selectableMapping;
-
-		PassThroughXmlWriteExpression(SelectableMapping selectableMapping) {
-			this.selectableMapping = selectableMapping;
-		}
-
-		@Override
-		public void append(
-				SqlAppender sb,
-				String path,
-				SqlAstTranslator<?> translator,
-				AggregateColumnWriteExpression expression) {
-			sb.append( XML_QUERY_START );
-			sb.append( xmlExtractArguments( path, selectableMapping.getSelectableName() ) );
-			sb.append( XML_QUERY_END );
 		}
 	}
 

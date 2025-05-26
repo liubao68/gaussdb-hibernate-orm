@@ -19,7 +19,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.huaweicloud.gaussdb</groupId>
   <artifactId>gaussdb-hibernate-dialect</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
+  <version>1.0.1-SNAPSHOT</version>
   <name>GaussDB Hibernate Dialect</name>
   <description>GaussDB Hibernate Dialect Implementation</description>
   <url>https://github.com/HuaweiCloudDeveloper/gaussdb-hibernate-orm</url>

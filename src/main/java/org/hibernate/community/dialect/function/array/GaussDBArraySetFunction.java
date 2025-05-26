@@ -7,7 +7,7 @@ package org.hibernate.community.dialect.function.array;
 import org.hibernate.dialect.function.array.ArrayAndElementArgumentTypeResolver;
 import org.hibernate.dialect.function.array.ArrayAndElementArgumentValidator;
 import org.hibernate.dialect.function.array.ArrayViaArgumentReturnTypeResolver;
-import org.hibernate.metamodel.model.domain.ReturnableType;
+import org.hibernate.query.ReturnableType;
 import org.hibernate.query.sqm.function.AbstractSqmSelfRenderingFunctionDescriptor;
 import org.hibernate.query.sqm.produce.function.ArgumentTypesValidator;
 import org.hibernate.query.sqm.produce.function.StandardArgumentsValidators;

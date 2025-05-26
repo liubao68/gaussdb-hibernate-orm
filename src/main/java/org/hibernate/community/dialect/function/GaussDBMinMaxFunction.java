@@ -7,7 +7,7 @@ package org.hibernate.community.dialect.function;
 import java.util.List;
 
 import org.hibernate.metamodel.mapping.JdbcMapping;
-import org.hibernate.metamodel.model.domain.ReturnableType;
+import org.hibernate.query.ReturnableType;
 import org.hibernate.query.sqm.function.AbstractSqmSelfRenderingFunctionDescriptor;
 import org.hibernate.query.sqm.function.FunctionKind;
 import org.hibernate.query.sqm.produce.function.ArgumentTypesValidator;
@@ -62,7 +62,7 @@ public class GaussDBMinMaxFunction extends AbstractSqmSelfRenderingFunctionDescr
 			Predicate filter,
 			ReturnableType<?> returnType,
 			SqlAstTranslator<?> translator) {
-		final boolean caseWrapper = filter != null && !translator.getSessionFactory().getJdbcServices().getDialect().supportsFilterClause();
+		final boolean caseWrapper = filter != null;
 		sqlAppender.appendSql( getName() );
 		sqlAppender.appendSql( '(' );
 		final Expression arg = (Expression) sqlAstArguments.get( 0 );

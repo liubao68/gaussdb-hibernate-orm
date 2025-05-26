@@ -18,7 +18,6 @@ import org.hibernate.community.dialect.function.array.GaussDBArrayRemoveFunction
 import org.hibernate.community.dialect.function.array.GaussDBArrayRemoveIndexFunction;
 import org.hibernate.community.dialect.function.array.GaussDBArrayReplaceFunction;
 import org.hibernate.community.dialect.function.array.GaussDBArraySetFunction;
-import org.hibernate.community.dialect.function.json.GaussDBJsonObjectFunction;
 import org.hibernate.dialect.function.CommonFunctionFactory;
 import org.hibernate.dialect.function.array.ArrayIncludesOperatorFunction;
 import org.hibernate.dialect.function.array.ArrayIntersectsOperatorFunction;
@@ -93,9 +92,9 @@ public class GaussDBFunctionRegistry {
 		functionFactory.inverseDistributionOrderedSetAggregates();
 		functionFactory.hypotheticalOrderedSetAggregates();
 		functionFactory.dateTrunc();
-		functionFactory.hex( "encode(?1, 'hex')" );
-		functionFactory.sha( "sha256(?1)" );
-		functionFactory.md5( "decode(md5(?1), 'hex')" );
+//		functionFactory.hex( "encode(?1, 'hex')" );
+		functionFactory.sha();
+		functionFactory.md5();
 
 		functionContributions.getFunctionRegistry().register( "min", new GaussDBMinMaxFunction( "min" ) );
 		functionContributions.getFunctionRegistry().register( "max", new GaussDBMinMaxFunction( "max" ) );
@@ -186,6 +185,6 @@ public class GaussDBFunctionRegistry {
 	}
 
 	public void jsonObject_gaussdb() {
-		functionRegistry.register( "json_object", new GaussDBJsonObjectFunction( typeConfiguration ) );
+//		functionRegistry.register( "json_object", new GaussDBJsonObjectFunction( typeConfiguration ) );
 	}
 }

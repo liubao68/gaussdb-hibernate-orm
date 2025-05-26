@@ -7,15 +7,10 @@ package org.hibernate.community.dialect.function;
 import org.hibernate.dialect.Dialect;
 import org.hibernate.metamodel.mapping.JdbcMappingContainer;
 import org.hibernate.metamodel.mapping.MappingModelExpressible;
-import org.hibernate.metamodel.model.domain.ReturnableType;
-import org.hibernate.query.common.TemporalUnit;
+import org.hibernate.query.ReturnableType;
+import org.hibernate.query.sqm.TemporalUnit;
 import org.hibernate.query.spi.QueryEngine;
-import org.hibernate.query.sqm.function.AbstractSqmFunctionDescriptor;
-import org.hibernate.query.sqm.function.FunctionRenderer;
-import org.hibernate.query.sqm.function.MultipatternSqmFunctionDescriptor;
-import org.hibernate.query.sqm.function.SelfRenderingFunctionSqlAstExpression;
-import org.hibernate.query.sqm.function.SelfRenderingSqmFunction;
-import org.hibernate.query.sqm.function.SqmFunctionDescriptor;
+import org.hibernate.query.sqm.function.*;
 import org.hibernate.query.sqm.produce.function.ArgumentTypesValidator;
 import org.hibernate.query.sqm.produce.function.ArgumentsValidator;
 import org.hibernate.query.sqm.produce.function.FunctionReturnTypeResolver;
@@ -226,7 +221,10 @@ public class GaussDBFormatFunction extends AbstractSqmFunctionDescriptor impleme
 					final FunctionRenderer substringFunction = getFunction( walker, "substring", 3 );
 					final BasicType<String> stringType = typeConfiguration.getBasicTypeRegistry()
 							.resolve( StandardBasicTypes.STRING );
-					final Dialect dialect = walker.getCreationContext().getDialect();
+					final Dialect dialect = walker.getCreationContext()
+							.getSessionFactory()
+							.getJdbcServices()
+							.getDialect();
 					Expression formatExpression = null;
 					final StringBuilder sb = new StringBuilder();
 					final StringBuilderSqlAppender sqlAppender = new StringBuilderSqlAppender( sb );
@@ -426,21 +424,26 @@ public class GaussDBFormatFunction extends AbstractSqmFunctionDescriptor impleme
 			);
 		}
 
-		private FunctionRenderer getFunction(SqmToSqlAstConverter walker, String name) {
-			return (FunctionRenderer)
-					walker.getCreationContext().getSqmFunctionRegistry().findFunctionDescriptor( name );
+		private AbstractSqmSelfRenderingFunctionDescriptor getFunction(SqmToSqlAstConverter walker, String name) {
+			return (AbstractSqmSelfRenderingFunctionDescriptor) walker.getCreationContext()
+					.getSessionFactory()
+					.getQueryEngine()
+					.getSqmFunctionRegistry()
+					.findFunctionDescriptor( name );
 		}
 
-		private FunctionRenderer getFunction(SqmToSqlAstConverter walker, String name, int argumentCount) {
-			final SqmFunctionDescriptor functionDescriptor =
-					walker.getCreationContext().getSqmFunctionRegistry()
-							.findFunctionDescriptor( name );
-			if ( functionDescriptor instanceof MultipatternSqmFunctionDescriptor multipatternSqmFunctionDescriptor ) {
-				return (FunctionRenderer) multipatternSqmFunctionDescriptor.getFunction( argumentCount );
+		private AbstractSqmSelfRenderingFunctionDescriptor getFunction(SqmToSqlAstConverter walker, String name, int argumentCount) {
+			final SqmFunctionDescriptor functionDescriptor = walker.getCreationContext()
+					.getSessionFactory()
+					.getQueryEngine()
+					.getSqmFunctionRegistry()
+					.findFunctionDescriptor( name );
+			if ( functionDescriptor instanceof MultipatternSqmFunctionDescriptor ) {
+				return (AbstractSqmSelfRenderingFunctionDescriptor)
+						( (MultipatternSqmFunctionDescriptor) functionDescriptor )
+								.getFunction( argumentCount );
 			}
-			else {
-				return (FunctionRenderer) functionDescriptor;
-			}
+			return (AbstractSqmSelfRenderingFunctionDescriptor) functionDescriptor;
 		}
 
 		private SqlAstNode getOffsetAdjusted(

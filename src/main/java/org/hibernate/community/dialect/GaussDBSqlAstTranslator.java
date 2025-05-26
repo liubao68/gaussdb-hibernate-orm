@@ -6,8 +6,8 @@ package org.hibernate.community.dialect;
 
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.metamodel.mapping.JdbcMappingContainer;
-import org.hibernate.query.common.FetchClauseType;
 import org.hibernate.query.sqm.ComparisonOperator;
+import org.hibernate.query.sqm.FetchClauseType;
 import org.hibernate.sql.ast.Clause;
 import org.hibernate.sql.ast.tree.Statement;
 import org.hibernate.sql.ast.tree.cte.CteMaterialization;
@@ -242,10 +242,10 @@ public class GaussDBSqlAstTranslator<T extends JdbcOperation> extends SqlAstTran
 	@Override
 	protected void renderStandardCycleClause(CteStatement cte) {
 		super.renderStandardCycleClause( cte );
-		if ( cte.getCycleMarkColumn() != null && cte.getCyclePathColumn() == null && getDialect().supportsRecursiveCycleUsingClause() ) {
-			appendSql( " using " );
-			appendSql( determineCyclePathColumnName( cte ) );
-		}
+//		if ( cte.getCycleMarkColumn() != null && cte.getCyclePathColumn() == null && false ) {
+//			appendSql( " using " );
+//			appendSql( determineCyclePathColumnName( cte ) );
+//		}
 	}
 
 	@Override
