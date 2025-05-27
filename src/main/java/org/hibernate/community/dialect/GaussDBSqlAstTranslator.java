@@ -242,10 +242,6 @@ public class GaussDBSqlAstTranslator<T extends JdbcOperation> extends SqlAstTran
 	@Override
 	protected void renderStandardCycleClause(CteStatement cte) {
 		super.renderStandardCycleClause( cte );
-//		if ( cte.getCycleMarkColumn() != null && cte.getCyclePathColumn() == null && false ) {
-//			appendSql( " using " );
-//			appendSql( determineCyclePathColumnName( cte ) );
-//		}
 	}
 
 	@Override

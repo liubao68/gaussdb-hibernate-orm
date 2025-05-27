@@ -741,6 +741,11 @@ public class GaussDBDialect extends Dialect {
 	}
 
 	@Override
+	public String getNativeIdentifierGeneratorStrategy() {
+		return "sequence";
+	}
+
+	@Override
 	public ViolatedConstraintNameExtractor getViolatedConstraintNameExtractor() {
 		return EXTRACTOR;
 	}
