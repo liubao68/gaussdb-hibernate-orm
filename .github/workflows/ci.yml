@@ -4,14 +4,15 @@
 name: Java CI with Maven
 
 on:
+  schedule:
+    - cron: '0 0 * * *'
   push:
-    branches: [ master-dev ]
+    branches: [ master ]
 
 jobs:
   build:
     if: github.repository == 'HuaweiCloudDeveloper/gaussdb-hibernate-orm'
     runs-on: ubuntu-latest
-    environment: gaussdb-hibernate-orm-build
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 17
@@ -21,9 +22,4 @@ jobs:
           distribution: adopt
           cache: maven
       - name: Build with Maven
-        env:
-          SONATYPE_USER: ${{ secrets.SONATYPE_USER }}
-          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-          GPG_KEY_BASE64: ${{ secrets.GPG_KEY_BASE64 }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: ./ci/build-and-snapshot.sh
+        run: ./ci/build-and-test.sh
