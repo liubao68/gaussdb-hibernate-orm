@@ -1,8 +1,7 @@
 #!/bin/bash
 
-git clone https://github.com/HuaweiCloudDeveloper/hibernate-orm.git
+git clone https://github.com/hibernate/hibernate-orm.git
 cd hibernate-orm
-git checkout -B 7.0.x origin/7.0.x
 ./docker_db.sh gaussdb
-./gradlew clean build -Pdb=gaussdb -DdbHost=localhost:8000
+./gradlew clean test -Pdb=gaussdb -DdbHost=localhost:8000
 
