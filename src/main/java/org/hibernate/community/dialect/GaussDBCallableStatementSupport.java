@@ -25,7 +25,7 @@ public class GaussDBCallableStatementSupport extends StandardCallableStatementSu
 	@Override
 	protected void appendNameParameter(
 			StringBuilder buffer,
-			ProcedureParameterImplementor<?> parameter,
+			ProcedureParameterImplementor parameter,
 			JdbcCallParameterRegistration registration) {
 		buffer.append( parameter.getName() ).append( " => ?" );
 	}
