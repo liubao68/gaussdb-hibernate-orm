@@ -5,7 +5,9 @@ name: Java CI with Maven
 
 on:
   push:
-    branches: [ master-dev ]
+    branches: [ 7.0.x ]
+  pull_request:
+    branches: [ 7.0.x ]
 
 jobs:
   build:
@@ -21,9 +23,11 @@ jobs:
           distribution: adopt
           cache: maven
       - name: Build with Maven
+        run: ./mvnw clean install
+      - name:  Test and Deploy
         env:
           SONATYPE_USER: ${{ secrets.SONATYPE_USER }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           GPG_KEY_BASE64: ${{ secrets.GPG_KEY_BASE64 }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: ./ci/build-and-snapshot.sh
+        run: ./ci/build-and-test.sh
